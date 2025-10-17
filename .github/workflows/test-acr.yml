@@ -1,0 +1,19 @@
+name: Caller Pipeline - Invoca el reusable con parámetros
+
+on:
+  workflow_dispatch:
+
+jobs:
+  # Este job INVOCA al workflow reutilizable pasándole las variables de compilación
+  build-with-compilation-vars:
+    uses: ./.github/workflows/docker-build-reusable.yml
+    with:
+      docker-image-name: "myapp"
+      dockerfile-path: "Dockerfile"
+      registry-name: "testingcicdparams.azurecr.io"
+      image-tag: "test-123"
+      # ⬇️ AQUÍ SE PASAN LAS VARIABLES DE COMPILACIÓN
+      compilation-time-variables: "ENVIRONMENT=production BUILD_MODE=release API_VERSION=v2.0"
+    secrets:
+      registry-username: ${{ secrets.ACR_USERNAME }}
+      registry-password: ${{ secrets.ACR_PASSWORD }}

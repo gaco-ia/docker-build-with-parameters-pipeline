@@ -1,0 +1,36 @@
+# Git
+.git
+.gitignore
+.github
+
+# Documentation
+README.md
+*.md
+
+# Node.js
+node_modules
+npm-debug.log
+yarn-error.log
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# CI/CD
+.github/workflows
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Tests
+test
+tests
+*.test.js
+*.spec.js
+
+# Logs
+logs
+*.log

@@ -1,0 +1,126 @@
+name: Docker Build (Reusable Workflow)
+
+on:
+  workflow_call:
+    inputs:
+      docker-image-name:
+        description: 'Name of the Docker image'
+        required: true
+        type: string
+      dockerfile-path:
+        description: 'Path to the Dockerfile'
+        required: false
+        type: string
+        default: 'Dockerfile'
+      registry-name:
+        description: 'Container Registry name (e.g., myregistry.azurecr.io or ghcr.io)'
+        required: true
+        type: string
+      image-tag:
+        description: 'Docker image tag'
+        required: false
+        type: string
+        default: 'latest'
+      compilation-time-variables:
+        description: 'Compilation-time variables to pass as build args (format: VAR1=value1 VAR2=value2)'
+        required: false
+        type: string
+        default: ''
+      runner-type:
+        description: 'Type of GitHub runner to use'
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+    secrets:
+      registry-username:
+        description: 'Registry username for authentication'
+        required: false
+      registry-password:
+        description: 'Registry password/token for authentication'
+        required: false
+
+jobs:
+  build-docker-image:
+    runs-on: ${{ inputs.runner-type }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: ${{ secrets.registry-username != '' && secrets.registry-password != '' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ inputs.registry-name }}
+          username: ${{ secrets.registry-username }}
+          password: ${{ secrets.registry-password }}
+
+      - name: Process compilation-time variables
+        id: process-vars
+        run: |
+          BUILD_ARGS=""
+          COMPILATION_TIME_VARS="${{ inputs.compilation-time-variables }}"
+          
+          if [ -n "$COMPILATION_TIME_VARS" ]; then
+            echo "🔧 Processing compilation-time variables..."
+            for var in $COMPILATION_TIME_VARS; do
+              if [[ "$var" == *"="* ]]; then
+                BUILD_ARGS="$BUILD_ARGS --build-arg $var"
+                VAR_NAME="${var%%=*}"
+                echo "  ✓ Added build arg: $VAR_NAME"
+              fi
+            done
+          else
+            echo "ℹ️  No compilation-time variables provided"
+          fi
+          
+          # Export for next step (escape newlines and special chars)
+          echo "build-args<<EOF" >> $GITHUB_OUTPUT
+          echo "$BUILD_ARGS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo "📋 Build args to be used: $BUILD_ARGS"
+
+      - name: Build Docker image
+        run: |
+          FULL_IMAGE_NAME="${{ inputs.registry-name }}/${{ inputs.docker-image-name }}:${{ inputs.image-tag }}"
+          
+          echo "🔨 Building Docker image..."
+          echo "  📦 Image: $FULL_IMAGE_NAME"
+          echo "  📄 Dockerfile: ${{ inputs.dockerfile-path }}"
+          
+          docker build -t "$FULL_IMAGE_NAME" \
+            -f "${{ inputs.dockerfile-path }}" \
+            ${{ steps.process-vars.outputs.build-args }} \
+            .
+          
+          echo "✅ Docker image built successfully: $FULL_IMAGE_NAME"
+
+      - name: Push Docker image
+        if: ${{ secrets.registry-username != '' && secrets.registry-password != '' }}
+        run: |
+          FULL_IMAGE_NAME="${{ inputs.registry-name }}/${{ inputs.docker-image-name }}:${{ inputs.image-tag }}"
+          
+          echo "🚀 Pushing Docker image..."
+          docker push "$FULL_IMAGE_NAME"
+          
+          echo "✅ Docker image pushed successfully: $FULL_IMAGE_NAME"
+
+      - name: Image build summary
+        run: |
+          echo "## 🎉 Docker Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ inputs.registry-name }}/${{ inputs.docker-image-name }}:${{ inputs.image-tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Dockerfile:** \`${{ inputs.dockerfile-path }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -n "${{ inputs.compilation-time-variables }}" ]; then
+            echo "**Build Arguments:**" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "${{ inputs.compilation-time-variables }}" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
