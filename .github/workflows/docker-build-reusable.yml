@@ -51,7 +51,6 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to Container Registry
-        if: ${{ secrets.registry-username != '' && secrets.registry-password != '' }}
         uses: docker/login-action@v3
         with:
           registry: ${{ inputs.registry-name }}
@@ -100,7 +99,6 @@ jobs:
           echo "✅ Docker image built successfully: $FULL_IMAGE_NAME"
 
       - name: Push Docker image
-        if: ${{ secrets.registry-username != '' && secrets.registry-password != '' }}
         run: |
           FULL_IMAGE_NAME="${{ inputs.registry-name }}/${{ inputs.docker-image-name }}:${{ inputs.image-tag }}"
           
