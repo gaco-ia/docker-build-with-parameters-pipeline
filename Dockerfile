@@ -25,7 +25,7 @@ RUN echo "" && \
 COPY package*.json ./
 
 # Instalar dependencias
-RUN npm ci --only=production
+RUN npm install --production
 
 # Copiar código fuente
 COPY server.js ./
